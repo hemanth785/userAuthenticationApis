@@ -1,6 +1,10 @@
 const express = require("express");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const appError = require("./utils/appError");
+const globalErrorHandler = require("./controllers/errorController");
+
+const userRouter = require('./routes/userRoutes');
 
 const app = express();
 
@@ -26,6 +30,8 @@ app.use((req,res,next) => {
 
     next();
 })
+
+app.use('/api/v1/users',userRouter);
 
 //HANDLING UNHANDLED ROUTES
 app.all('*',(req,res,next) => {  //app.all - handle all the http requests including get,post,delete etc
