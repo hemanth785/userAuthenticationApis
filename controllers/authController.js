@@ -25,16 +25,12 @@ const createSentToken = (user,statusCode,res) => {
 }
 
 exports.signup = catchAsync(async (req, res, next) => {
-    
-    //const newUser = await User.create(req.body);
-
     const newUser = await User.create({
         name : req.body.name,
         email : req.body.email,
         password : req.body.password,
         passwordConfirm: req.body.passwordConfirm
     });
-
     createSentToken(newUser,201,res);
 });
 
@@ -76,12 +72,10 @@ exports.forgotPassword = catchAsync(async(req, res, next) => {
 });
 
 exports.resetPassword = catchAsync(async (req, res, next) => {
-    // 01) get the user based on token
-    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
 
+    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
     const user = await User.findOne({passwordResetToken : hashedToken, passwordResetExpires : {$gt : Date.now()}});
 
-    // 02) if token is not expired and there is a user, then set new password
     if(!user){
         return next(new AppError("Token is invalid or expired"));
     }
@@ -91,9 +85,25 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     user.passwordResetExpires = undefined;
     await user.save();
 
-    // 03) update the changedPasswordAt property for the user
-
-    // 04) Log the user in and send the JWT
     createSentToken(user,200,res);
+});
 
+exports.updatePassword = catchAsync(async (req, res, next) => {
+    // 01) Get user from the collection
+    const user = await User.findById(req.params.id).select('+password');
+
+    // 02) check if posted current user is correct
+    const correct = await user.correctPassword(req.body.currentPassword,user.password)
+    if(!correct){
+        return next(new AppError('Incorrect current password',402));
+    }
+
+    // 03) if so, update password
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+
+    await user.save()
+
+    // 04) Log user in, send JWT
+    createSentToken(user,200,res);
 });
